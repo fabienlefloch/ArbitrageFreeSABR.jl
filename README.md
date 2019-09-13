@@ -5,7 +5,7 @@
 | [![Build Status](https://travis-ci.org/fabienlefloch/ArbitrageFreeSABR.jl.svg?branch=master)](https://travis-ci.org/fabienlefloch/ArbitrageFreeSABR.jl) | [![codecov.io](http://codecov.io/github/fabienlefloch/ArbitrageFreeSABR.jl/coverage.svg?branch=master)](http://codecov.io/github/fabienlefloch/ArbitrageFreeSABR.jl?branch=master) |
 
 
-Julia package to accompany the paper [Finite Difference Techniques for Arbitrage-Free SABR](https://www.risk.net/journal-of-computational-finance/2465429/finite-difference-techniques-for-arbitrage-free-sabr). The code is not meant for production purpose and does not catter for corner cases. It is only meant to illustrate the main techniques described in the paper.
+Julia package to accompany the paper [Finite Difference Techniques for Arbitrage-Free SABR](https://www.risk.net/journal-of-computational-finance/2465429/finite-difference-techniques-for-arbitrage-free-sabr). The code is not meant for production purpose and does not cater for corner cases. It is only meant to illustrate the main techniques described in the paper.
 
 ## Installation
 
@@ -59,18 +59,24 @@ forward = 1.0; expiry = 1.0;
 N = 50; timesteps = 5; nd = 4;
 maturity = SABRMaturity(α,β,ρ,ν,forward,expiry,ArbitrageFreeSABRModel())
 density = makeTransformedDensityLawsonSwayne(maturity, N, timesteps, nd)
+```
+We may plot the internal discrete density:
+```julia
 plot(x=density.zm, y=density.ϑ, Geom.line,  Guide.ylabel("Grid density"),Guide.xlabel("ϑ"))
+```
+The implied probability density may be obtained with the second derivative of the call option prices, here we implement a simple numerical differentiation.
+```julia
 ε = 1e-6; h = 2.0/1000; strikes = collect(0:1000) * h .+ ε;
 impliedDensity = zeros(length(strikes));
 price(strike) = priceTransformedDensity(density, true, strike, ArbitrageFreeSABR.midpoint)
 @. impliedDensity = (price(strikes+ε)-2*price(strikes) +price(strikes-ε)) /ε^2
 plot(x=strikes[2:end],y=impliedDensity[2:end], Geom.line, Guide.ylabel("Implied density"),Guide.xlabel("Strike"))
 ```
-
+This results in the following figure.
 ![Implied density of the arbitrage-free SABR model, using Hagan (2014) parameters](./hagan_density.svg "Implied density of the arbitrage-free SABR model, using Hagan (2014)")
 
 ### Implied volatility of the free-boundary SABR model
-Here is an example of how to use the free-boundary SABR model instead of the more classic SABR model. We first plot the Bachelier (normal or basis point) volatities, and then the implied density, using the same parameters as Antonov et al.
+Here is an example of how to use the free-boundary SABR model instead of the more classic SABR model. We first plot the Bachelier (normal or basis point) volatilities, and then the implied density, using the same parameters as Antonov et al.
 
 ```julia
 using Gadfly
