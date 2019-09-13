@@ -16,7 +16,7 @@ In a Julia REPL, enter `pkg` mode (by pressing `]`) and run:
 
 [Julia](https://julianlang.org) version 1.0 or higher is required.
 
-##Usage
+## Usage
 
 Start by creating a `SABRMaturity` structure, which represents the parameters of the SABR model for a given option maturity.
 
@@ -25,8 +25,8 @@ Then make a `TransformedDensity` structure via `makeTransformedDensityLawsonSway
 And price vanilla call and puts of a given strike by evaluating the `TransformedDensity`.
 
 
-##Examples
-###Price from the paper Hagan example
+## Examples
+### Price from the paper Hagan example
 We use the same parameters as the example of negative density with the standard SABR
 formula in (Hagan et al., 2014): α = 35%, β = 0.25, ρ = −10%, ν = 100% and forward f=1%.
 The finite difference grid extends to `nd=4` standard deviations and is composed of `N=500` steps for the probability density dimension ϑ and 5 time steps.
@@ -45,7 +45,7 @@ priceTransformedDensity(density, isCall, strike, ArbitrageFreeSABR.midpoint)
 
 The reference price is 0.149701955629
 
-###Plot the implied density
+### Plot the implied density
 Here, we reproduce the plot of the implied density, using the parameters of Hagan et al. (2014).
 
 ```julia
@@ -65,9 +65,9 @@ price(strike) = priceTransformedDensity(density, true, strike, ArbitrageFreeSABR
 plot(x=strikes[2:end],y=impliedDensity[2:end], Geom.line, Guide.ylabel("Implied density"),Guide.xlabel("Strike"))
 ```
 
-![Implied density of the arbitrage-free SABR model, using Hagan (2014) parameters](hagan_density.svg?raw=true "Implied density of the arbitrage-free SABR model, using Hagan (2014)")
+![Implied density of the arbitrage-free SABR model, using Hagan (2014) parameters](./hagan_density.svg?raw=true "Implied density of the arbitrage-free SABR model, using Hagan (2014)")
 
-###Implied volatility of the free-boundary SABR model
+### Implied volatility of the free-boundary SABR model
 Here is an example of how to use the free-boundary SABR model instead of the more classic SABR model. We first plot the Bachelier (normal or basis point) volatities, and then the implied density, using the same parameters as Antonov et al.
 
 ```julia
@@ -89,14 +89,14 @@ vol(price, strike) = bachelierVolatility(price, true, strike, expiry, forward)
 plot(x=strikes/forward,y=vols, Geom.line, Guide.ylabel("Implied volatility"),Guide.xlabel("Strike in forward units"))
 ```
 
-![Implied Bachelier volatility of the free-boundary SABR model, using Antonov et al. parameters](antonov_density.svg?raw=true "Implied Bachelier volatility of the free-boundary SABR model, using Antonov et al. parameters")
+![Implied Bachelier volatility of the free-boundary SABR model, using Antonov et al. parameters](./antonov_density.svg?raw=true "Implied Bachelier volatility of the free-boundary SABR model, using Antonov et al. parameters")
 
 ```julia
 ε = 1e-4; impliedDensity = zeros(length(strikes));
 @. impliedDensity = (price(strikes+ε)-2*price(strikes) +price(strikes-ε)) /ε^2
 plot(x=strikes[1:end]/forward,y=impliedDensity[1:end], Geom.line, Guide.ylabel("Implied density"),Guide.xlabel("Strike in forward units"))
 ```
-![Implied density of the free-boundary SABR model, using Antonov et al. parameters](antonov_density.svg?raw=true "Implied density of the free-boundary SABR model, using Antonov et al. parameters")
+![Implied density of the free-boundary SABR model, using Antonov et al. parameters](./antonov_density.svg?raw=true "Implied density of the free-boundary SABR model, using Antonov et al. parameters")
 ### Convergence table
 
 ## Testing
