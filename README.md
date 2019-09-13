@@ -66,7 +66,7 @@ plot(x=strikes[2:end],y=impliedDensity[2:end], Geom.line, Guide.ylabel("Implied 
 ```
 
 ![Implied density of the arbitrage-free SABR model, using Hagan (2014) parameters](./hagan_density.svg "Implied density of the arbitrage-free SABR model, using Hagan (2014)")
-<img src="./hagan_density.svg">
+
 ### Implied volatility of the free-boundary SABR model
 Here is an example of how to use the free-boundary SABR model instead of the more classic SABR model. We first plot the Bachelier (normal or basis point) volatities, and then the implied density, using the same parameters as Antonov et al.
 
@@ -90,7 +90,6 @@ plot(x=strikes/forward,y=vols, Geom.line, Guide.ylabel("Implied volatility"),Gui
 ```
 
 ![Implied Bachelier volatility of the free-boundary SABR model, using Antonov et al. parameters](./antonov_bachelier.svg "Implied Bachelier volatility of the free-boundary SABR model, using Antonov et al. parameters")
-<img src="./antonov_bachelier.svg">
 
 ```julia
 ε = 1e-4; impliedDensity = zeros(length(strikes));
@@ -98,7 +97,6 @@ plot(x=strikes/forward,y=vols, Geom.line, Guide.ylabel("Implied volatility"),Gui
 plot(x=strikes[1:end]/forward,y=impliedDensity[1:end], Geom.line, Guide.ylabel("Implied density"),Guide.xlabel("Strike in forward units"))
 ```
 ![Implied density of the free-boundary SABR model, using Antonov et al. parameters](./antonov_density.svg "Implied density of the free-boundary SABR model, using Antonov et al. parameters")
-<img src="./antonov_density.svg">
 
 ### Convergence table
 
