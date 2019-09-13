@@ -7,7 +7,8 @@
 
 Julia package to accompany the paper [Finite Difference Techniques for Arbitrage-Free SABR](https://www.risk.net/journal-of-computational-finance/2465429/finite-difference-techniques-for-arbitrage-free-sabr). The code is not meant for production purpose and does not catter for corner cases. It is only meant to illustrate the main techniques described in the paper.
 
-##Installation
+## Installation
+
 In a Julia REPL, enter `pkg` mode (by pressing `]`) and run:
 
 ```julia
@@ -26,6 +27,7 @@ And price vanilla call and puts of a given strike by evaluating the `Transformed
 
 
 ## Examples
+
 ### Price from the paper Hagan example
 We use the same parameters as the example of negative density with the standard SABR
 formula in (Hagan et al., 2014): α = 35%, β = 0.25, ρ = −10%, ν = 100% and forward f=1%.
