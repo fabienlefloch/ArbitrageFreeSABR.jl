@@ -19,18 +19,27 @@ In a Julia REPL, enter `pkg` mode (by pressing `]`) and run:
 
 ## Usage
 
-Start by creating a `SABRMaturity` structure, which represents the parameters of the SABR model for a given option maturity.
+Start by creating a `SABRMaturity` structure, which represents the parameters of the SABR model for a given option maturity. It takes the SABR parameters α,β,ρ,ν as well as the forward and the expiry time (in fractions of year - `expiry=1.0` means 1 year). An additional parameter specifies the underlying SABRModel, which can be either the standard `ArbitrageFreeSABRModel()` or the `FreeBoundarySABRModel()`.
+```julia
+maturity = SABRMaturity(α,β,ρ,ν,forward,expiry,ArbitrageFreeSABRModel())
+```
 
-Then make a `TransformedDensity` structure via `makeTransformedDensityLawsonSwayne`. This function will solve the arbitrage-free PDE on a grid using the specified number of space steps and time steps, and spanning `nd` standard deviations below and above. `nd=4` is a reasonable choice.
+Then make a `TransformedDensity` structure via `makeTransformedDensityLawsonSwayne`. This function will solve the arbitrage-free PDE on a grid using the specified number of space steps `N` and time steps `timesteps`, and spanning `nd` standard deviations below and above. `nd=4` is a reasonable choice.
+```julia
+density = makeTransformedDensityLawsonSwayne(maturity, N, timesteps, nd)
+```
 
 And price vanilla call and puts of a given strike by evaluating the `TransformedDensity`.
-
+```julia
+priceTransformedDensity(density, true, strike, ArbitrageFreeSABR.midpoint)
+```
+The second parameter specifies whether we want to price a call (true) or a put (false). The last parameter specifies the interpolation in between grid nodes. The original Hagan et al.(2014) paper corresponds to `ArbitrageFreeSABR.none`, while our paper corresponds to `ArbitrageFreeSABR.midpoint`. In the future, we may add a quadratic interpolation.
 
 ## Examples
 
-### Price from the paper Hagan example
+### Price from the paper: Hagan example
 We use the same parameters as the example of negative density with the standard SABR
-formula in (Hagan et al., 2014): α = 35%, β = 0.25, ρ = −10%, ν = 100% and forward f=1%.
+formula in (Hagan et al., 2014): α = 35%, β = 0.25, ρ = −10%, ν = 100% and forward f = 1% for a maturity of one year.
 The finite difference grid extends to `nd=4` standard deviations and is composed of `N=500` steps for the probability density dimension ϑ and 5 time steps.
 
 ```julia
@@ -48,7 +57,7 @@ priceTransformedDensity(density, isCall, strike, ArbitrageFreeSABR.midpoint)
 The reference price is 0.149701955629
 
 ### Plot the implied density
-Here, we reproduce the plot of the implied density, using the parameters of Hagan et al. (2014).
+Here, we reproduce the plot of the implied density, using the parameters of Hagan et al. (2014), using a small grid.
 
 ```julia
 using ArbitrageFreeSABR
@@ -64,7 +73,7 @@ We may plot the internal discrete density:
 ```julia
 plot(x=density.zm, y=density.ϑ, Geom.line,  Guide.ylabel("Grid density"),Guide.xlabel("ϑ"))
 ```
-The implied probability density may be obtained with the second derivative of the call option prices, here we implement a simple numerical differentiation.
+The implied probability density is obtained by computing the second derivative of the call option prices, here we implement a simple numerical differentiation.
 ```julia
 ε = 1e-6; h = 2.0/1000; strikes = collect(0:1000) * h .+ ε;
 impliedDensity = zeros(length(strikes));
@@ -78,7 +87,7 @@ This results in the following figure.
 As we used only 50 space steps, we can see clearly the staircase.
 
 ### Implied volatility of the free-boundary SABR model
-Here is an example of how to use the free-boundary SABR model instead of the more classic SABR model. We first plot the Bachelier (normal or basis point) volatilities, and then the implied density, using the same parameters as Antonov et al.
+Here is an example of how to use the free-boundary SABR model instead of the more classic SABR model. We use the same parameters as Antonov et al. for the free-boundary SABR model: forward = 50 bps, β = 0.1; α = 0.5*forward^(1-β); ν = 0.30; ρ = -0.30 for an option of expiring in three years. We first plot the Bachelier (normal or basis point) volatilities, and then the implied density.
 
 ```julia
 using Gadfly
@@ -94,7 +103,7 @@ h = 5.0/1000; strikes = (collect(0:1000) * h .- 1.0)*forward ; prices = zeros(le
 price(strike) = priceTransformedDensity(density, true, strike, ArbitrageFreeSABR.midpoint)
 @. prices = price(strikes)
 vols = zeros(length(strikes));
-vol(price, strike) = bachelierVolatility(price, true, strike, expiry, forward)
+vol(price, strike) = bachelierVolatility(price, true, strike, forward, expiry)
 @. vols = vol(prices, strikes)
 plot(x=strikes/forward,y=vols, Geom.line, Guide.ylabel("Implied volatility"),Guide.xlabel("Strike in forward units"))
 ```

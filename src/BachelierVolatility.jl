@@ -35,7 +35,8 @@ function ratval(cofs::Vector{Float64}, nn::Int, dd::Int, x::T)  where {T}
 	return sumn / (1.0 + sumd)
 end
 
-function bachelierVolatility(price::T, isCall::Bool, strike::T, tte::T, forward::T) where {T}
+function bachelierVolatility(price::T, isCall::Bool, strike::T, forward::T, tte::T, df::T) where {T}
+	price/=df
 	sign = 1.0
 	if !isCall
 		sign = -1.0

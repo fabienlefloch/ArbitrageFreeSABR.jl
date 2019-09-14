@@ -4,6 +4,7 @@ using LinearAlgebra
 include("BlackScholes.jl")
 include("ImpliedVolatility.jl")
 include("BachelierVolatility.jl")
+include("Bachelier.jl")
 
 "Structure for the parameters of the SABR model for a given option maturity"
 abstract type SABRModel end

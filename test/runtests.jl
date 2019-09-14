@@ -16,6 +16,17 @@ end
     tte = 1.5917808219178082
     isCall = false
     tolerance = 1e-8
-    vol = impliedVolatilityLiSORTS(price, f, strike, tte, isCall, 1.0, 0.0, tolerance,64)
+    vol = impliedVolatilityLiSORTS(price, isCall, strike, f, tte, 1.0, 0.0, tolerance,64)
     @test isapprox(blackScholesFormula(isCall, strike, f, vol*vol*tte, 1.0, 1.0), price, atol=tolerance)
+end
+
+@testset "BachelierVolatilitySet" begin
+    price = 271.43234885190117
+    strike = 275.0
+    f = 356.73063159822254
+    tte = 1.5917808219178082
+    isCall = false
+    tolerance = 1e-13
+    vol = bachelierVolatility(price, isCall, strike, f, tte,1.0)
+    @test isapprox(bachelierFormula(isCall, strike, f, vol*vol*tte, 1.0), price, atol=tolerance)
 end
