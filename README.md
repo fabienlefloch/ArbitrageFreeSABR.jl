@@ -81,13 +81,15 @@ price(strike) = priceTransformedDensity(density, true, strike, ArbitrageFreeSABR
 @. impliedDensity = (price(strikes+ε)-2*price(strikes) +price(strikes-ε)) /ε^2
 plot(x=strikes[2:end],y=impliedDensity[2:end], Geom.line, Guide.ylabel("Implied density"),Guide.xlabel("Strike"))
 ```
+
 This results in the following figure.
+
 ![Implied density of the arbitrage-free SABR model, using Hagan (2014) parameters](./hagan_density.svg "Implied density of the arbitrage-free SABR model, using Hagan (2014)")
 
 As we used only 50 space steps, we can see clearly the staircase.
 
 ### Implied volatility of the free-boundary SABR model
-Here is an example of how to use the free-boundary SABR model instead of the more classic SABR model. We use the same parameters as Antonov et al. for the free-boundary SABR model: forward = 50 bps, β = 0.1; α = 0.5*forward^(1-β); ν = 0.30; ρ = -0.30 for an option of expiring in three years. We first plot the Bachelier (normal or basis point) volatilities, and then the implied density.
+Here is an example of how to use the free-boundary SABR model instead of the more classic SABR model. We use the same parameters as Antonov et al. for the free-boundary SABR model: forward = 50 bps, β = 0.1; α = 0.5*forward^(1-β); ν = 0.30; ρ = -0.30 for an option of expiring in three years. Because the model allows for negative strikes, we will plot the volatility in the Bachelier model (the b.p. vol corresponds to the Bachelier vol multiplied by 10000) implied by each option price.
 
 ```julia
 using Gadfly
@@ -110,13 +112,17 @@ plot(x=strikes/forward,y=vols, Geom.line, Guide.ylabel("Implied volatility"),Gui
 
 ![Implied Bachelier volatility of the free-boundary SABR model, using Antonov et al. parameters](./antonov_bachelier.svg "Implied Bachelier volatility of the free-boundary SABR model, using Antonov et al. parameters")
 
+We may plot the implied density similarly as in our previous example:
 ```julia
 ε = 1e-4; impliedDensity = zeros(length(strikes));
 @. impliedDensity = (price(strikes+ε)-2*price(strikes) +price(strikes-ε)) /ε^2
 plot(x=strikes[1:end]/forward,y=impliedDensity[1:end], Geom.line, Guide.ylabel("Implied density"),Guide.xlabel("Strike in forward units"))
-This shows the spike at the strike price of zero, of Antonov et al.. This spike stems from the model, and not from any artificial numerical error.
 ```
+
 ![Implied density of the free-boundary SABR model, using Antonov et al. parameters](./antonov_density.svg "Implied density of the free-boundary SABR model, using Antonov et al. parameters")
+
+This shows the spike at the strike price of zero, of Antonov et al.. This spike stems from the model, and not from any artificial numerical error.
+
 ### Convergence table
 
 ## Testing
