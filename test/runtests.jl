@@ -6,7 +6,8 @@ using ArbitrageFreeSABR, Test
     N = 500; timesteps = 5; nd= 4;
     maturity = SABRMaturity(alpha,beta,rho,nu,forward,expiry,ArbitrageFreeSABRModel())
     density = makeTransformedDensityLawsonSwayne(maturity, N, timesteps, nd)
-    @test isapprox(priceTransformedDensity(density, true, forward, ArbitrageFreeSABR.trapezoidal), 0.149701955629, atol=1e-8)
+    @test isapprox(priceTransformedDensity(density, true, forward, ArbitrageFreeSABR.midpoint), 0.149701955629, atol=1e-10)
+    @test isapprox(priceTransformedDensity(density, true, forward, ArbitrageFreeSABR.linear), 0.14970195574320477, atol=1e-10)
 end
 
 @testset "ImpliedVolatilitySet" begin
