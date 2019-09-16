@@ -6,12 +6,11 @@ include("ImpliedVolatility.jl")
 include("BachelierVolatility.jl")
 include("Bachelier.jl")
 
-"Structure for the parameters of the SABR model for a given option maturity"
 abstract type SABRModel end
 struct ArbitrageFreeSABRModel <: SABRModel end
 struct FreeBoundarySABRModel <: SABRModel end
 
-
+"Structure for the parameters of the SABR model for a given option maturity"
 struct SABRMaturity{T<:Real,M<:SABRModel}
   α::T
   β::T
@@ -22,9 +21,8 @@ struct SABRMaturity{T<:Real,M<:SABRModel}
   model::M
 end
 
-
 "Probability density in the finite difference grid, at a given time, expressed in the transformed coordinate theta"
-struct TransformedDensity{T<:Real, M<:SABRModel}
+struct TransformedDensity{T<:Real,M<:SABRModel}
   maturity::SABRMaturity{T,M}
   zmin::T
   zmax::T
@@ -35,7 +33,11 @@ struct TransformedDensity{T<:Real, M<:SABRModel}
   PR::T
 end
 
-export ArbitrageFreeSABRModel, FreeBoundarySABRModel, SABRMaturity, makeTransformedDensityLawsonSwayne, priceTransformedDensity
+export ArbitrageFreeSABRModel,
+       FreeBoundarySABRModel,
+       SABRMaturity,
+       makeTransformedDensityLawsonSwayne,
+       priceTransformedDensity
 
 function solveStep(ϑ::Vector{G}, PL::G, PR::G, h::G, Fm::Vector{G}, Cm::Vector{G}, Em::Vector{G}, dt::G) where {G}
   frac = dt / (2 * h)
@@ -82,7 +84,7 @@ function computeBoundaries(m::SABRMaturity{G,FreeBoundarySABRModel}, nd) where {
   return zmin, zmax
 end
 
-function yofz(m::SABRMaturity{G,M}, zm) where {G,M <: SABRModel}
+function yofz(m::SABRMaturity{G,M}, zm) where {G,M<:SABRModel}
   return m.α / m.ν * (sinh.(m.ν * zm) + m.ρ * (cosh.(m.ν * zm) .- 1))
 end
 function fofy(m::SABRMaturity{G,ArbitrageFreeSABRModel}, ym) where {G}
@@ -90,13 +92,13 @@ function fofy(m::SABRMaturity{G,ArbitrageFreeSABRModel}, ym) where {G}
 end
 function fofy(m::SABRMaturity{G,FreeBoundarySABRModel}, ym) where {G}
   u = sign(m.forward) * abs(m.forward)^(1 - m.β) .+ (1 - m.β) * ym
-  return sign.(u) .* ((abs.(u)) .^ (1 / (1 - m.β)))
+  return sign.(u) .* ((abs.(u)).^(1 / (1 - m.β)))
 end
 function cofy(m::SABRMaturity{G,ArbitrageFreeSABRModel}, ym, Fm) where {G}
   return sqrt.(m.α^2 .+ 2 * m.ρ * m.α * m.ν * ym + m.ν^2 * ym.^2) .* Fm.^(m.β)
 end
 function cofy(m::SABRMaturity{G,FreeBoundarySABRModel}, ym, Fm) where {G}
-  return sqrt.(m.α^2 .+ 2 * m.ρ * m.α * m.ν * ym + m.ν^2 * ym.^2) .* abs.(Fm) .^ (m.β)
+  return sqrt.(m.α^2 .+ 2 * m.ρ * m.α * m.ν * ym + m.ν^2 * ym.^2) .* abs.(Fm).^(m.β)
 end
 function gammaOfF(m::SABRMaturity{G,ArbitrageFreeSABRModel}, Fm, j0::Int) where {G}
   Gamma = (Fm.^m.β .- m.forward^m.β) ./ (Fm .- m.forward)
@@ -105,38 +107,34 @@ function gammaOfF(m::SABRMaturity{G,ArbitrageFreeSABRModel}, Fm, j0::Int) where 
 end
 
 function gammaOfF(m::SABRMaturity{G,FreeBoundarySABRModel}, Fm, j0::Int) where {G}
-  Gamma = (abs.(Fm) .^ m.β .- abs(m.forward)^m.β) ./ (Fm .- m.forward)
-  Gamma[j0+1] = sign(m.forward) * m.β / abs(m.forward).^(1 - m.β)
+  Gamma = (abs.(Fm).^m.β .- abs(m.forward)^m.β) ./ (Fm .- m.forward)
   return Gamma
 end
-function yOfStrike(m::SABRMaturity{T, ArbitrageFreeSABRModel}, strike) where {T}
+function yOfStrike(m::SABRMaturity{T,ArbitrageFreeSABRModel}, strike) where {T}
   return (strike.^(1 - m.β) .- m.forward^(1 - m.β)) / (1 - m.β)
 end
 
-function yOfStrike(m::SABRMaturity{T, FreeBoundarySABRModel}, strike) where {T}
+function yOfStrike(m::SABRMaturity{T,FreeBoundarySABRModel}, strike) where {T}
   return (sign.(strike) .* abs.(strike).^(1 - m.β) .- m.forward^(1 - m.β)) / (1 - m.β)
 end
 
-function makeForward(m::SABRMaturity{T, M}, z) where {T, M <: SABRModel}
-  y = yofz(m,z)
-  return fofy(m,y)
+function makeForward(m::SABRMaturity{T,M}, z) where {T,M<:SABRModel}
+  y = yofz(m, z)
+  return fofy(m, y)
 end
 
-function makeTransformedDensityLawsonSwayne(maturity::SABRMaturity{G,M}, N::Int, timesteps::Int, nd::Real) where {G, M <: SABRModel}
-  α = maturity.α
-  β = maturity.β
-  ν = maturity.ν
-  ρ = maturity.ρ
-  forward = maturity.forward
-  T = maturity.time
-    # initialize h,F and Q
+function makeTransformedDensityLawsonSwayne(
+  maturity::SABRMaturity{G,M},
+  N::Int,
+  timesteps::Int,
+  nd::Real
+) where {G,M<:SABRModel}
+  α = maturity.α;  β = maturity.β;  ν = maturity.ν;  ρ = maturity.ρ;  forward = maturity.forward;  T = maturity.time;
   zmin, zmax = computeBoundaries(maturity, nd)
-  J = N - 2
-  h0 = (zmax - zmin) / J
-  j0 = ceil((0 - zmin) / h0)
+  J = N - 2;  h0 = (zmax - zmin) / J;  j0 = ceil((0 - zmin) / h0)
   h = (0 - zmin) / (j0 - 0.5)
   z = collect(0:(J+1)) * h .+ zmin
-  zmax = z[J+2]
+  zmax = z[J+1] #z[J+2] is outside as we shift the grid
   zm = z .- 0.5 * h
   ym = yofz(maturity, zm)
   ym[1] = ym[2] #avoid negative
@@ -184,7 +182,7 @@ function makeTransformedDensityLawsonSwayne(maturity::SABRMaturity{G,M}, N::Int,
   return density
 end
 
-@enum DensitySmoothing none = 1 trapezoidal = 2 midpoint = 3
+@enum DensitySmoothing none = 1 linear = 2 midpoint = 3
 
 function priceTransformedDensity(
   density::TransformedDensity,
@@ -200,33 +198,36 @@ function priceTransformedDensity(
   forward = maturity.forward
   ystrike = yOfStrike(maturity, strike)
   zstrike = -1 / ν * log.((sqrt.(1 .- ρ^2 .+ (ρ + ν * ystrike / α).^2) .- ρ - ν * ystrike / α) / (1 - ρ))
-  if isCall
-    if (zstrike <= density.zmin)
-      p = forward .- strike
-    else
-      if (zstrike >= density.zmax)
-        p = 0
-      else
-        Fmax = makeForward(maturity, density.zmax)
-        p = (Fmax .- strike) * density.PR
-        k0 = Int.(ceil.((zstrike .- density.zmin) / density.h))
-        ztilde = density.zmin .+ k0 * density.h
-        ftilde = makeForward(maturity, ztilde)
-        term = ftilde .- strike
-        Fm = makeForward(maturity, density.zm[k0+1:end]) #zm[k0+1] = zmin+k0*h
-        if smoothing != none && term > 0
-          dFdz = 0.0
-          if smoothing == trapezoidal
-            dFdz = (ftilde - Fm[1]) / (ztilde - density.zm[k0+1])
-          elseif smoothing == midpoint
-            dFdz = 2 * (ftilde - Fm[1]) / density.h
-          end
-          p += 0.5 * term * term * density.ϑ[k0+1] / dFdz
-        end
-        p += sum((Fm[2:end-1] .- strike) * density.h .* density.ϑ[k0+2:end-1])
-      end
-    end
+  if (zstrike <= density.zmin)
+    p = forward .- strike
   else
+    if (zstrike >= density.zmax)
+      p = 0
+    else
+      Fmax = makeForward(maturity, density.zmax)
+      p = (Fmax .- strike) * density.PR
+      k0 = Int.(ceil.((zstrike .- density.zmin) / density.h))
+      ztilde = density.zmin .+ k0 * density.h
+      ftilde = makeForward(maturity, ztilde)
+      term = ftilde .- strike
+      Fm = makeForward(maturity, density.zm[k0+1:end]) #zm[k0+1] = zmin+k0*h
+      if smoothing != none && term > 0
+        dFdz = 0.0
+        ϑ0 = density.ϑ[k0+1]
+        if smoothing == linear
+          ftildem = makeForward(maturity, ztilde-density.h)
+          bk = (2*Fm[1]-ftildem-ftilde)/(ftilde-ftildem)
+          dFdz = (ftilde-ftildem)/density.h/(1+bk*(ftilde+2*strike-3*ftildem)/(ftilde-ftildem))
+        elseif smoothing == midpoint
+          dFdz = 2 * (ftilde - Fm[1]) / density.h           #equivalent todFdz = (ftilde - Fm[1]) / (ztilde - density.zm[k0+1])
+        end
+        p += 0.5 * term * term * ϑ0 / dFdz
+      end
+      p += sum((Fm[2:end-1] .- strike) * density.h .* density.ϑ[k0+2:end-1])
+    end
+  end
+  if !isCall
+    p = p - (forward - strike) # Call-Put = forward - strike
   end
 
   return p

@@ -124,6 +124,41 @@ plot(x=strikes[1:end]/forward,y=impliedDensity[1:end], Geom.line, Guide.ylabel("
 This shows the spike at the strike price of zero, of Antonov et al.. This spike stems from the model, and not from any artificial numerical error.
 
 ### Convergence table
+Here, we compute the at-the-money implied volatility for a sequence of doubling time steps and space steps, as well as the ratio of the differences between consecutive results. A ratio of 4 corresponds to second-order convergence.
+
+```julia
+using ArbitrageFreeSABR
+using DataFrames
+
+forward = 1.0; expiry = 1.0;
+α = 0.35; β = 0.25; ν = 1.0; ρ = -0.1;
+maturity = SABRMaturity(α,β,ρ,ν,forward,expiry,ArbitrageFreeSABRModel())
+isCall = true; strike = forward;
+N = collect(0:5); @. N = 2 ^ N * 80;
+timesteps = collect(0:5); @. timesteps = 2^ timesteps * 5;
+vol0 = NaN
+diff0 = NaN
+df = DataFrame(N=Int[], timesteps=Int[], ATM_vol=Float64[], diff=Float64[], ratio=Float64[])
+for (Ni, timestepsi) in zip(N, timesteps)
+  density = makeTransformedDensityLawsonSwayne(maturity, Ni, timestepsi, 4)  
+  price = priceTransformedDensity(density, isCall, strike, ArbitrageFreeSABR.midpoint)
+  vol = 100*impliedVolatilityLiSORTS(price, true, strike, forward, expiry, 1.0, 0.0, 1e-12, 64)
+  global df = vcat(df, DataFrame(N=Ni, timesteps=timestepsi, ATM_vol=vol, diff=vol-vol0, ratio= diff0/(vol-vol0)))
+  global diff0 = vol-vol0
+  global vol0 = vol
+end
+print(df)
+```
+This results in
+
+│ Row │ N     │ timesteps │ ATM_vol │ diff         │ ratio   │
+├─────┼───────┼───────────┼─────────┼──────────────┼─────────┤
+│ 1   │ 80    │ 5         │ 37.7508 │ NaN          │ NaN     │
+│ 2   │ 160   │ 10        │ 37.7328 │ -0.0180661   │ NaN     │
+│ 3   │ 320   │ 20        │ 37.7285 │ -0.00422614  │ 4.27485 │
+│ 4   │ 640   │ 40        │ 37.7275 │ -0.00104294  │ 4.05213 │
+│ 5   │ 1280  │ 80        │ 37.7272 │ -0.000258917 │ 4.0281  │
+│ 6   │ 2560  │ 160       │ 37.7272 │ -6.45699e-5  │ 4.00988 │
 
 ## Testing
 
