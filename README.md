@@ -2,7 +2,7 @@
 
 | Status | Coverage |
 | :----: | :----: |
-| [![Build Status](https://travis-ci.org/fabienlefloch/ArbitrageFreeSABR.jl.svg?branch=master)](https://travis-ci.org/fabienlefloch/ArbitrageFreeSABR.jl) | [![codecov.io](http://codecov.io/github/fabienlefloch/ArbitrageFreeSABR.jl/coverage.svg?branch=master)](http://codecov.io/github/fabienlefloch/ArbitrageFreeSABR.jl?branch=master) |
+| ![Build Status](https://github.com/fabienlefloch/ArbitrageFreeSABR.jl/actions/workflows/julia-runtests.yml/badge.svg)  | [![codecov.io](http://codecov.io/github/fabienlefloch/ArbitrageFreeSABR.jl/coverage.svg?branch=master)](http://codecov.io/github/fabienlefloch/ArbitrageFreeSABR.jl?branch=master) |
 
 
 Julia package to accompany the paper [Finite Difference Techniques for Arbitrage-Free SABR](https://www.risk.net/journal-of-computational-finance/2465429/finite-difference-techniques-for-arbitrage-free-sabr). The code is not meant for production purpose and does not cater for corner cases. It is only meant to illustrate the main techniques described in the paper.
