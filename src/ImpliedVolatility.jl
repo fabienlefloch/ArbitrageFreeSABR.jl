@@ -67,6 +67,7 @@ function impliedVolatilityLiRationalGuess(
     return impliedVolatilitySqrtTimeRationalGuess(x, c) / sqrtte
 end
 
+"Implied volatility of a vanilla option under the Black-Scholes model via Li SOR-TS algorithm"
 function impliedVolatilityLiSORTS(
     price::T,
     isCall::Bool,

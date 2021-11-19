@@ -1,6 +1,8 @@
 using Statistics
+
 export bachelierFormula
 
+"Price of a vanilla option under the Bachelier/Normal model"
 function bachelierFormula(isCall::Bool, strike::T, forward::T, variance::T, discountDf::T) where {T}
     sign = 1.0
     if !isCall

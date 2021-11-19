@@ -75,13 +75,12 @@ plot(x=density.zm, y=density.ϑ, Geom.line,  Guide.ylabel("Grid density"),Guide.
 ```
 The implied probability density is obtained by computing the second derivative of the call option prices, here we implement a simple numerical differentiation.
 ```julia
-ε = 1e-6; h = 2.0/1000; strikes = collect(0:1000) * h .+ ε;
+ε = 1e-3; h = 2.0/1000; strikes = collect(0:1000) * h .+ ε;
 impliedDensity = zeros(length(strikes));
 price(strike) = priceTransformedDensity(density, true, strike, ArbitrageFreeSABR.midpoint)
 @. impliedDensity = (price(strikes+ε)-2*price(strikes) +price(strikes-ε)) /ε^2
 plot(x=strikes[2:end],y=impliedDensity[2:end], Geom.line, Guide.ylabel("Implied density"),Guide.xlabel("Strike"))
 ```
-
 This results in the following figure.
 
 ![Implied density of the arbitrage-free SABR model, using Hagan (2014) parameters](./hagan_density.svg "Implied density of the arbitrage-free SABR model, using Hagan (2014)")
@@ -161,6 +160,12 @@ This results in
 | 5   | 1280  | 80        | 37.7272 | -0.000258917 | 4.0281  |
 | 6   | 2560  | 160       | 37.7272 | -6.45699e-5  | 4.00988 |
 
+
+### Mistakes
+The first moment is not strictly conserved. With regards to the continuous integral the conservation is only up to order \\( O(h^2) \\). It is only conserved strictly with regards to \\( \hat{F}_j \\). This is still useful to establish a simple call option pricing formula based on the discrete probability density.
+
+The mid-point approximation does not lead to a continuous cumulative density. It is continuous only relative to \\( O(h) \\). As a result, the probability density, and indirectly the gamma may exhibit spurious oscillations when the numerical differentiation step size is smaller than h. A more exact approximation is to consider a discontinuous piecewise-linear function for the probability density, such that the zero-th and first moments are preserved (with regards to \\( \hat{F}_j \\) ). The density will be guaranteed positive on the condition that \\( \hat{F}_j > \frac{1}{3}F_j + \frac{2}{3} F_{j-1} \\). Alternatively, a C2 cubic spline interpolation on top of the call prices at the knots \\((F_j)\\)
+ may be used, along with first derivatives \\( -1+P_L, -P_R \\), at \\( F_{\min}, F_{\max} \\). This leads to a continuous probability density function, and will respect zero-th and first moment conservation formulas over the full interval (rather than over sub-intervals). Note that it is a priori not guaranteed that the interpolated density will stay positive.
 
 ## Testing
 

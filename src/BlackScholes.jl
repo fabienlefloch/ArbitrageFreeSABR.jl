@@ -1,6 +1,8 @@
 using Statistics
 
 export blackScholesFormula
+
+"Price of a vanilla option under the Black-Scholes model"
 function blackScholesFormula(isCall::Bool, strike::T, spot::T, variance::T, driftDf::T, discountDf::T) where {T}
 
     sign = 1.0

@@ -29,5 +29,8 @@ end
     isCall = false
     tolerance = 1e-13
     vol = bachelierVolatility(price, isCall, strike, f, tte,1.0)
+    call = f - strike + price
+    tv = call - max(f-strike,0.0)
+    y = tv/abs(f-strike)*4*sqrt(pi)
     @test isapprox(bachelierFormula(isCall, strike, f, vol*vol*tte, 1.0), price, atol=tolerance)
 end

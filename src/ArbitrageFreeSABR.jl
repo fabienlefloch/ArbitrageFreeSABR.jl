@@ -1,5 +1,6 @@
 module ArbitrageFreeSABR
 using LinearAlgebra
+using SparseArrays
 
 include("BlackScholes.jl")
 include("ImpliedVolatility.jl")
@@ -88,7 +89,8 @@ function yofz(m::SABRMaturity{G,M}, zm) where {G,M<:SABRModel}
   return m.α / m.ν * (sinh.(m.ν * zm) + m.ρ * (cosh.(m.ν * zm) .- 1))
 end
 function fofy(m::SABRMaturity{G,ArbitrageFreeSABRModel}, ym) where {G}
-  return (m.forward^(1 - m.β) .+ (1 - m.β) * ym).^(1 / (1 - m.β))
+  expr = m.forward^(1 - m.β) .+ (1 - m.β) * ym
+  return (max.(expr, 0)).^(1 / (1 - m.β))
 end
 function fofy(m::SABRMaturity{G,FreeBoundarySABRModel}, ym) where {G}
   u = sign(m.forward) * abs(m.forward)^(1 - m.β) .+ (1 - m.β) * ym
@@ -129,9 +131,16 @@ function makeTransformedDensityLawsonSwayne(
   timesteps::Int,
   nd::Real
 ) where {G,M<:SABRModel}
-  α = maturity.α;  β = maturity.β;  ν = maturity.ν;  ρ = maturity.ρ;  forward = maturity.forward;  T = maturity.time;
+  α = maturity.α
+  β = maturity.β
+  ν = maturity.ν
+  ρ = maturity.ρ
+  forward = maturity.forward
+  T = maturity.time
   zmin, zmax = computeBoundaries(maturity, nd)
-  J = N - 2;  h0 = (zmax - zmin) / J;  j0 = ceil((0 - zmin) / h0)
+  J = N - 2
+  h0 = (zmax - zmin) / J
+  j0 = ceil((0 - zmin) / h0)
   h = (0 - zmin) / (j0 - 0.5)
   z = collect(0:(J+1)) * h .+ zmin
   zmax = z[J+1] #z[J+2] is outside as we shift the grid
@@ -182,13 +191,52 @@ function makeTransformedDensityLawsonSwayne(
   return density
 end
 
-@enum DensitySmoothing none = 1 linear = 2 midpoint = 3
+@enum DensitySmoothing none = 1 linear = 2 midpoint = 3 linearc0 = 4
+
+
+function computeLinearValues(density::TransformedDensity)
+  n = length(density.ϑ)
+  Fm = makeForward(density.maturity, density.zm) #FIXME check Fm[1] != Fm[2] (should be negative, is it possible? eventually, just mirror it, the choice is free)
+  Fm[1] = -Fm[2]
+  F = makeForward(density.maturity, density.zm .+ 0.5 * density.h)
+  s = zeros(n)
+  d = zeros(n)
+  dl = zeros(n - 1)
+  du = zeros(n - 1)
+  rhs = zeros(n)
+  firstrow = zeros(n)
+  lastrow = zeros(n)
+  for i = 2:n-1
+    d[i] = F[i] - F[i-1] - 0.5 * (F[i] - Fm[i])^2 / (Fm[i+1] - Fm[i]) + 0.5 * (F[i-1] - Fm[i])^2 / (Fm[i-1] - Fm[i])
+    du[i] = 0.5 * (F[i] - Fm[i])^2 / (Fm[i+1] - Fm[i])
+    dl[i-1] = -0.5 * (F[i-1] - Fm[i])^2 / (Fm[i-1] - Fm[i])
+    rhs[i] = density.ϑ[i] * density.h
+    lastrow[i] += 0.5 * (F[i] - Fm[i])^2 - 0.5 * (F[i-1] - Fm[i])^2 - (F[i] - Fm[i])^3 / (Fm[i+1] - Fm[i]) / 3.0 +
+                  (F[i-1] - Fm[i])^3 / (Fm[i-1] - Fm[i]) / 3.0
+    lastrow[i-1] += -(F[i-1] - Fm[i])^3 / (Fm[i-1] - Fm[i]) / 3.0
+    lastrow[i+1] += (F[i] - Fm[i])^3 / (Fm[i+1] - Fm[i]) / 3.0
+      #rhs[0] += Fm[i]*density.ϑ[i]*density.h
+      ##use F*a + b expression for F^2, eventually for F as well.
+  end
+  rhs[n] = 0
+  firstrow[1] = Fm[2] # Fm[2]*s[1] + Fm[1]*s[2] = 0
+  firstrow[2] = -Fm[1]
+  rhs[1] = 0
+  tri = Tridiagonal(dl, d, du)
+  #then add top row and bottom row to matrix
+  stri = sparse(tri)
+  stri[1, :] = firstrow
+  stri[n, :] = lastrow
+  coeff = stri \ rhs
+  return coeff
+end
 
 function priceTransformedDensity(
   density::TransformedDensity,
   isCall::Bool,
   strike::G,
-  smoothing::DensitySmoothing
+  smoothing::DensitySmoothing,
+  smoothingParameters = nothing
 ) where {G}
   maturity = density.maturity
   α = maturity.α
@@ -206,24 +254,56 @@ function priceTransformedDensity(
     else
       Fmax = makeForward(maturity, density.zmax)
       p = (Fmax .- strike) * density.PR
-      k0 = Int.(ceil.((zstrike .- density.zmin) / density.h))
+      k0 = Int.(ceil.((zstrike .- density.zmin - eps()*1000) / density.h))
       ztilde = density.zmin .+ k0 * density.h
       ftilde = makeForward(maturity, ztilde)
       term = ftilde .- strike
-      Fm = makeForward(maturity, density.zm[k0+1:end]) #zm[k0+1] = zmin+k0*h
-      if smoothing != none && term > 0
-        dFdz = 0.0
-        ϑ0 = density.ϑ[k0+1]
-        if smoothing == linear
-          ftildem = makeForward(maturity, ztilde-density.h)
-          bk = (2*Fm[1]-ftildem-ftilde)/(ftilde-ftildem)
-          dFdz = (ftilde-ftildem)/density.h/(1+bk*(ftilde+2*strike-3*ftildem)/(ftilde-ftildem))
-        elseif smoothing == midpoint
-          dFdz = 2 * (ftilde - Fm[1]) / density.h           #equivalent todFdz = (ftilde - Fm[1]) / (ztilde - density.zm[k0+1])
+      if smoothing == linearc0
+        Fm = makeForward(maturity, density.zm[k0:end]) #zm[k0+1] = zmin+k0*h
+        if k0 == 1
+          Fm[1] = -Fm[2]
         end
-        p += 0.5 * term * term * ϑ0 / dFdz
+        F = makeForward(maturity, density.zm[k0:end] .+ 0.5 * density.h)
+        coeff = convert(Array{Float64}, smoothingParameters)[k0:end]
+        p += sum((Fm[3:end-1] .- strike) * density.h .* density.ϑ[k0+2:end-1])
+        for i = 3:length(Fm)-1
+          p += (0.5 * (F[i] - Fm[i])^2 - 0.5 * (F[i-1] - Fm[i])^2) * coeff[i] +
+               (coeff[i+1] - coeff[i]) * (F[i] - Fm[i])^3 / (Fm[i+1] - Fm[i]) / 3.0 +
+               (coeff[i] - coeff[i-1]) * (F[i-1] - Fm[i])^3 / (Fm[i-1] - Fm[i]) / 3.0
+        end
+        if strike < Fm[2]
+          p += (F[2] - Fm[2])^3 * (coeff[3] - coeff[2]) / (Fm[3] - Fm[2]) / 3.0 + 0.5 * (F[2] - Fm[2])^2 * coeff[2]+Fm[2]*(0.5*(F[2]-Fm[2])^2*(coeff[3]-coeff[2])/(Fm[3]-Fm[2])+coeff[2]*(F[2]-Fm[2]))
+          p -= strike * ((F[2]^2 - Fm[2]^2) * (coeff[3] - coeff[2]) / (Fm[3] - Fm[2]) / 2.0 + (F[2] - Fm[2]) * (coeff[2]-Fm[2]*(coeff[3] - coeff[2]) / (Fm[3] - Fm[2])))
+          p -= (strike-Fm[2])^3 * (coeff[1] - coeff[2]) / (Fm[1] - Fm[2]) / 3.0 + 0.5 * (strike - Fm[2])^2 * coeff[2]+Fm[2]*(0.5*(strike-Fm[2])^2*(coeff[1]-coeff[2])/(Fm[1]-Fm[2])+coeff[2]*(strike-Fm[2]))
+#          p += (Fm[2]^3 - strike^3) * (coeff[2] - coeff[1]) / (Fm[2] - Fm[1]) / 3.0 +
+          #     0.5 * (Fm[2]^2 - strike^2) *( coeff[1] -Fm[1]* (coeff[2] - coeff[1]) / (Fm[2] - Fm[1]))
+          p -= strike *
+               ((Fm[2]^2 - strike^2) * (coeff[2] - coeff[1]) / (Fm[2] - Fm[1]) / 2.0 + (Fm[2] - strike) * (coeff[1] -Fm[1]* (coeff[2] - coeff[1]) / (Fm[2] - Fm[1])))
+        else
+          p += (F[2]^3 - strike^3) * (coeff[3] - coeff[2]) / (Fm[3] - Fm[2]) / 3.0 +
+               0.5 * (F[2]^2 - strike^2) * (coeff[2]-Fm[2]*(coeff[3] - coeff[2]) / (Fm[3] - Fm[2]))
+          p -= strike *
+               ((F[2]^2 - strike^2) * (coeff[3] - coeff[2]) / (Fm[3] - Fm[2]) / 2.0 + (F[2] - strike) *( coeff[2]-Fm[2]*(coeff[3] - coeff[2]) / (Fm[3] - Fm[2])))
+        end
+      else
+        Fm = makeForward(maturity, density.zm[k0+1:end]) #zm[k0+1] = zmin+k0*h
+        if term > 0 && (smoothing == linear || smoothing == midpoint)
+          dFdz = 0.0
+          ϑ0 = density.ϑ[k0+1]
+          if smoothing == linear
+            ftildem = makeForward(maturity, ztilde - density.h)
+            bk = (2 * Fm[1] - ftildem - ftilde) / (ftilde - ftildem)
+            dFdz = (ftilde - ftildem) / density.h / (1 + bk * (ftilde + 2 * strike - 3 * ftildem) / (ftilde - ftildem))
+          elseif smoothing == midpoint
+            ftildem = makeForward(maturity, ztilde - density.h)
+          #dFdz = (ftilde - ftildem) / density.h      #preserves zeroth
+            dFdz = 2 * (ftilde - Fm[1]) / density.h   #equivalent todFdz = (ftilde - Fm[1]) / (ztilde - density.zm[k0+1])
+          #dFdz = (ftilde-ftildem)^2 / (2*density.h*(Fm[1]-ftildem)) #preserve price but not zeroth
+          end
+          p += 0.5 * term * term * ϑ0 / dFdz
+        end
+        p += sum((Fm[2:end-1] .- strike) * density.h .* density.ϑ[k0+2:end-1])
       end
-      p += sum((Fm[2:end-1] .- strike) * density.h .* density.ϑ[k0+2:end-1])
     end
   end
   if !isCall
@@ -233,5 +313,52 @@ function priceTransformedDensity(
   return p
 end
 
+
+
+function cumulativeDensity(density::TransformedDensity, isCall::Bool, strike::G, smoothing::DensitySmoothing) where {G}
+  maturity = density.maturity
+  α = maturity.α
+  β = maturity.β
+  ν = maturity.ν
+  ρ = maturity.ρ
+  forward = maturity.forward
+  ystrike = yOfStrike(maturity, strike)
+  zstrike = -1 / ν * log.((sqrt.(1 .- ρ^2 .+ (ρ + ν * ystrike / α).^2) .- ρ - ν * ystrike / α) / (1 - ρ))
+  if (zstrike <= density.zmin)
+    p = -1.0
+  else
+    if (zstrike >= density.zmax)
+      p = 0.0
+    else
+      Fmax = makeForward(maturity, density.zmax)
+      p = -density.PR
+      k0 = Int.(ceil.((zstrike .- density.zmin - eps()*1000) / density.h))
+      ztilde = density.zmin .+ k0 * density.h
+      ftilde = makeForward(maturity, ztilde)
+      term = ftilde .- strike
+      Fm = makeForward(maturity, density.zm[k0+1:end]) #zm[k0+1] = zmin+k0*h
+      if smoothing != none && term > 0
+        dFdz = 0.0
+        ϑ0 = density.ϑ[k0+1]
+        if smoothing == linear
+          ftildem = makeForward(maturity, ztilde - density.h)
+          bk = (2 * Fm[1] - ftildem - ftilde) / (ftilde - ftildem)
+          dFdz = (ftilde - ftildem) / density.h / (1 + bk * (ftilde + 2 * strike - 3 * ftildem) / (ftilde - ftildem))
+        elseif smoothing == midpoint
+          ftildem = makeForward(maturity, ztilde - density.h)
+          #dFdz = (ftilde - ftildem) / density.h      #preserves zeroth
+          dFdz = 2 * (ftilde - Fm[1]) / density.h   #equivalent todFdz = (ftilde - Fm[1]) / (ztilde - density.zm[k0+1])
+          #dFdz = (ftilde-ftildem)^2 / (2*density.h*(Fm[1]-ftildem)) #preserve price but not zeroth
+        end
+        p += -term * ϑ0 / dFdz
+      end
+      p += -density.h .* sum(density.ϑ[k0+2:end-1])
+    end
+  end
+  if !isCall
+    p = p + 1 # Call-Put = forward - strike
+  end
+  return p
+end
 
 end # module

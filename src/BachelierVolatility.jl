@@ -35,6 +35,7 @@ function ratval(cofs::Vector{Float64}, nn::Int, dd::Int, x::T)  where {T}
 	return sumn / (1.0 + sumd)
 end
 
+"Implied volatility of a vanilla option under the Bachelier/Normal model"
 function bachelierVolatility(price::T, isCall::Bool, strike::T, forward::T, tte::T, df::T) where {T}
 	price/=df
 	sign = 1.0
