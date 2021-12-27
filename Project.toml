@@ -1,7 +1,7 @@
 name = "ArbitrageFreeSABR"
 uuid = "2608ead3-6571-486a-ad88-5e77169cf741"
 authors = ["Fabien Le Floc'h <fabien@2ipi.com>"]
-version = "0.1.1"
+version = "1.0.0"
 
 [deps]
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
